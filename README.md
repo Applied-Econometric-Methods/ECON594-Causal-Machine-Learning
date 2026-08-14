@@ -69,13 +69,13 @@ are trying to submit a problem set.
 
 In a browser, go to the course repository:
 
-**<https://github.com/robertpettis/ECON594-Causal-Machine-Learning>**
+**<https://github.com/Applied-Econometric-Methods/ECON594-Causal-Machine-Learning>**
 
 1. Click **Fork**, top right.
 2. Leave the name as it is. Click **Create fork**.
 3. You now have `github.com/YOURNAME/ECON594-Causal-Machine-Learning`.
 
-The page should say "forked from robertpettis/ECON594-Causal-Machine-Learning" under the title.
+The page should say "forked from Applied-Econometric-Methods/ECON594-Causal-Machine-Learning" under the title.
 That line is the link that makes syncing work later.
 
 A **fork** is a copy of the whole repository under your own account. It is where your work lives
@@ -86,7 +86,7 @@ and you should not want it: forty students pushing to one repository is chaos.
 
 Open a conda aware terminal:
 
-- **Windows:** Start menu → **Anaconda Prompt**. Not PowerShell, not Command Prompt.
+- **Windows:** Start menu, then **Anaconda Prompt**. Not PowerShell, not Command Prompt.
 - **macOS / Linux:** any terminal.
 
 You should see `(base)` at the start of the prompt. Move to wherever you keep coursework, then
@@ -111,7 +111,7 @@ Your clone already knows about your fork, under the name `origin`. Now tell it a
 the name `upstream`, so you can pull my updates all term:
 
 ```bash
-git remote add upstream https://github.com/robertpettis/ECON594-Causal-Machine-Learning.git
+git remote add upstream https://github.com/Applied-Econometric-Methods/ECON594-Causal-Machine-Learning.git
 git remote -v
 ```
 
@@ -261,6 +261,20 @@ git push origin main
 
 (`git pull` is two operations in one: `git fetch upstream` downloads my snapshots, and
 `git merge upstream/main` folds them into your files.)
+
+If the command line is fighting you, your fork's page on GitHub has a **Sync fork** button that
+does the same thing in the browser. Click it, then run `git pull` to bring the result down to
+your laptop.
+
+### Why this works even though I change things constantly
+
+I revise decks all term while you are working in the same folder. These do not collide, because
+git merges file by file. I edit files in `Lectures/`; you add files in your own folder. Two
+people editing different files is not a conflict, no matter how often either of us changes ours.
+
+So a pull that arrives in the middle of your work updates my notebooks, leaves your files exactly
+as they were, and needs nothing from you. The one way to break it is to edit my notebooks in
+place, which is what the next section is about.
 
 ## The habit that avoids all the pain
 
