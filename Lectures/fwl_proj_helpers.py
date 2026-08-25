@@ -42,6 +42,7 @@ try:
 except Exception:
     _FLASH_IMG = None
 
+FLASH_ROT = 270.0   # rotation that turns the lens to point straight down
 _ONE = np.array([1.0, 1.0, 1.0])
 _X = np.array([-1.0, 1.0, 3.0])
 _Y = np.array([2.0, 0.0, 4.0])       # gives beta0 = 1.5, beta1 = 0.5
@@ -408,6 +409,22 @@ def anim_together():
     return _spin("together")
 
 
+def _flash_down(ax, x, y_top, span, lift=0.78, zoom=0.075, spread=0.09):
+    """Draw the flashlight above (x, y_top) pointing straight down, with a few
+    faint beams fanning onto the axis. Silently does nothing without the image."""
+    if _FLASH_IMG is None:
+        return
+    from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+    rot = _FLASH_IMG.rotate(FLASH_ROT, expand=True, resample=_PILImage.BICUBIC)
+    oi = OffsetImage(np.asarray(rot), zoom=zoom)
+    ax.add_artist(AnnotationBbox(oi, (x, y_top + lift), frameon=False,
+                                 xycoords=ax.transData,
+                                 box_alignment=(0.5, 0.5), zorder=9))
+    for dx in (-1, -0.5, 0, 0.5, 1):
+        ax.plot([x, x + dx * spread * span], [y_top + lift * 0.45, 0],
+                color="#F2C200", lw=1.1, alpha=0.55, zorder=2)
+
+
 def fig_ratio():
     u1, u2, n = _frame()
     xt = float(_X @ u2)
@@ -429,9 +446,12 @@ def fig_ratio():
             fontsize=16, weight="bold")
     ax.annotate("", xy=(yt_h, yt_v), xytext=(0, 0),
                 arrowprops=dict(arrowstyle="-|>", lw=3.2, color=TEAL))
-    ax.text(yt_h * 1.02, yt_v + 0.06, "$\\tilde{\\mathbf{y}}$", color=TEAL,
-            fontsize=16, weight="bold")
+    ax.text(yt_h - 0.10, yt_v + 0.02, "$\\tilde{\\mathbf{y}}$", color=TEAL,
+            fontsize=16, weight="bold", ha="right")
     ax.plot([yt_h, yt_h], [yt_v, 0], color=INK, lw=1.8, ls=(0, (4, 3)))
+    # the same flashlight as the shadow animation, shining straight down, so the
+    # shadow of y-tilde lands on beta1 x-tilde
+    _flash_down(ax, yt_h, yt_v, span=xt)
     ax.scatter([yt_h], [0], s=55, color=BLUE, zorder=5)
     ax.text(yt_h, -0.34, "$\\beta_1\\tilde{\\mathbf{x}}$", color=BLUE,
             fontsize=13, ha="center")
@@ -448,7 +468,7 @@ def fig_ratio():
             % (xty, xtx, b1), transform=ax.transAxes, fontsize=14, color=MADRID,
             va="top")
     ax.set_xlim(-0.4, xt + 0.8)
-    ax.set_ylim(-0.75, yt_v + 0.6)
+    ax.set_ylim(-0.75, yt_v + 1.35)
     ax.set_xlabel("along $\\tilde{\\mathbf{x}}$  (demeaned x)", fontsize=12)
     ax.text(0, 1.02, "leftover, perpendicular to x", transform=ax.transAxes,
             ha="left", va="bottom", fontsize=11.5, color=INK)
