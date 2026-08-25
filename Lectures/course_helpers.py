@@ -12,6 +12,8 @@ dies on a broken install. Run check_setup() to see which one you are getting.
     relative_cumulative_gain_curve(...)
     area_under_the_relative_cumulative_gain_curve(...)
 """
+import re
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -35,6 +37,8 @@ GRIDCOL = "#C4C4D0"   # gridlines read as grey on a projector, not as nothing
 GROUP_COLORS  = ["#E69F00", "#0072B2", "#00A087"]   # orange, blue, teal
 GROUP_MARKERS = ["o", "^", "s"]
 FITLINE = "#B3121F"
+MEANLINE = "#5A5A66"   # dashed mean lines in the animations
+_MEANDASH = (0, (6, 4))
 
 # video settings: constant-quality h264 via the ffmpeg bundled in imageio-ffmpeg
 matplotlib.rcParams["animation.embed_limit"] = 100
@@ -204,7 +208,7 @@ def _draw_dag_graphviz(gv, edges, boxed=(), edge_labels=None):
 
 
 def draw_dag(edges, boxed=(), pos=None, ry=0.52, fontsize=13, figscale=0.66,
-             engine=None, edge_labels=None):
+             engine=None, edge_labels=None, plain=False, arc=True):
     """Draw a DAG in the course style.
 
     edges  : (source, target) pairs, optionally (source, target, penwidth) to
@@ -228,11 +232,12 @@ def draw_dag(edges, boxed=(), pos=None, ry=0.52, fontsize=13, figscale=0.66,
         raise RuntimeError("graphviz is not usable here; run chh.check_setup()")
     if isinstance(boxed, dict):
         boxed = tuple(boxed)
-    return _draw_dag_mpl(edges, boxed, pos, ry, fontsize, figscale, edge_labels)
+    return _draw_dag_mpl(edges, boxed, pos, ry, fontsize, figscale, edge_labels,
+                         plain, arc)
 
 
 def _draw_dag_mpl(edges, boxed=(), pos=None, ry=0.52, fontsize=13, figscale=0.66,
-                  edge_labels=None):
+                  edge_labels=None, plain=False, arc=True):
     """Fallback DAG renderer: matplotlib + networkx, no system binary needed.
 
     Ellipses size to their labels, and arrows stop on each node's boundary, so
@@ -271,6 +276,8 @@ def _draw_dag_mpl(edges, boxed=(), pos=None, ry=0.52, fontsize=13, figscale=0.66
     def _blocked(a, b):
         """Does the straight a->b segment pass too close to another node?
         Returns an arc curvature (0 = straight)."""
+        if not arc:
+            return 0.0
         (x1, y1), (x2, y2) = pos[a], pos[b]
         seg = np.array([x2 - x1, y2 - y1]); L = np.hypot(*seg)
         worst = 0.0
@@ -319,9 +326,12 @@ def _draw_dag_mpl(edges, boxed=(), pos=None, ry=0.52, fontsize=13, figscale=0.66
                                         2 * nry + 2 * m, boxstyle="square,pad=0",
                                         lw=1.1, edgecolor=INK, facecolor="none", zorder=3))
         else:
-            ax.add_patch(Ellipse((x, y), 2 * rx, 2 * nry, facecolor=MADRID,
-                                  edgecolor=MADRID, zorder=3))
-        ax.text(x, y, labels[n], ha="center", va="center", color="white",
+            ax.add_patch(Ellipse((x, y), 2 * rx, 2 * nry,
+                                  facecolor="white" if plain else MADRID,
+                                  edgecolor=INK if plain else MADRID, lw=1.1,
+                                  zorder=3))
+        ax.text(x, y, labels[n], ha="center", va="center",
+                color=INK if plain else "white",
                 fontsize=fontsize, zorder=4, linespacing=0.95)
 
     fig.tight_layout()
@@ -960,6 +970,14 @@ def collider_animation(seed=3444):
             ax.axvline(0, color="#7A7A85", linewidth=1.0, zorder=1)
         if hl:
             ax.axhline(0, color="#7A7A85", linewidth=1.0, zorder=1)
+        # one dashed pair per group, at that group's means: exactly the numbers
+        # being subtracted when we condition on stardom
+        for lvl, col in ((0, MADRID), (1, ACCENT)):
+            m = G == lvl
+            ax.axvline(float(Xa[m].mean()), color=col, linewidth=1.8,
+                       linestyle=_MEANDASH, alpha=0.55, zorder=2)
+            ax.axhline(float(Ya[m].mean()), color=col, linewidth=1.8,
+                       linestyle=_MEANDASH, alpha=0.55, zorder=2)
         ax.scatter(Xa, Ya, s=_POINT_SIZE, c=colors, alpha=0.85,
                    edgecolors="white", linewidths=0.5, zorder=3)
         xx = np.array(xlim)
@@ -994,6 +1012,60 @@ def collider_animation(seed=3444):
                                    interval=1000 / _FPS)
     plt.close(fig)
     return anim
+
+
+def fig_collider_panels(seed=3444, n=2500):
+    """The static payoff behind the collider animation, laid out the way the
+    Stata figure this example came from laid it out.
+
+    Beauty and talent are drawn independently, so the truth is a flat line.
+    Split the sample on stardom and the slope turns negative inside BOTH
+    groups. Pool it back together and the slope returns to roughly zero, which
+    is the number the selected samples never see.
+    """
+    star, beauty, talent = _make_collider(seed, n)
+    fig = plt.figure(figsize=(10.4, 6.6), dpi=110)
+    fig.patch.set_facecolor("white")
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.0, 1.25], hspace=0.72,
+                          wspace=0.24)
+    lim = (-4.0, 4.0)
+
+    def _panel(ax, t, b, color, title, title_color, point=9):
+        ax.set_facecolor("white")
+        ax.grid(True, color=GRIDCOL, linewidth=0.9, zorder=0)
+        ax.set_axisbelow(True)
+        ax.scatter(t, b, s=point, c=color, alpha=0.6, edgecolors="none",
+                   zorder=3)
+        slope, icpt = np.polyfit(t, b, 1)
+        fit_x = np.array([t.min(), t.max()])
+        ax.plot(fit_x, icpt + slope * fit_x, color=FITLINE, lw=2.3, zorder=4)
+        ax.set_xlim(*lim); ax.set_ylim(*lim)
+        ax.set_xlabel("Talent", fontsize=11)
+        set_top_ylabel(ax, "Beauty", fontsize=11, color=INK)
+        ax.set_title(title, fontsize=12.5, color=title_color, pad=18,
+                     weight="bold")
+        for s in ("top", "right"):
+            ax.spines[s].set_visible(False)
+        return slope
+
+    s_no = _panel(fig.add_subplot(gs[0, 0]), talent[star == 0], beauty[star == 0],
+                  MADRID, "Not a star", MADRID)
+    s_st = _panel(fig.add_subplot(gs[0, 1]), talent[star == 1], beauty[star == 1],
+                  ACCENT, "Movie star", ACCENT)
+
+    ax = fig.add_subplot(gs[1, :])
+    colors = np.where(star == 1, ACCENT, MADRID)
+    s_all = _panel(ax, talent, beauty, colors, "Everybody, stars and not",
+                   MADRID)
+    ax.scatter([], [], c=MADRID, s=34, label=f"Not a star (slope {s_no:+.2f})")
+    ax.scatter([], [], c=ACCENT, s=34, label=f"Movie star (slope {s_st:+.2f})")
+    ax.legend(loc="lower left", frameon=True, fontsize=10, framealpha=0.9)
+    ax.set_title(f"Everybody, stars and not: slope {s_all:+.2f}", fontsize=12.5,
+                 color=MADRID, pad=18, weight="bold")
+    fig.suptitle("Beauty and talent were drawn independently",
+                 fontsize=14.5, color=MADRID, weight="bold", y=0.995)
+    plt.close(fig)
+    return fig
 
 
 def load_icecream():
@@ -1136,6 +1208,13 @@ def _residual_animation(x, y, w, *, title, cbar_label, xlab_raw, xlab_res,
             ax.axvline(0, color="#7A7A85", linewidth=1.0, zorder=1)
         if fr["hl"]:
             ax.axhline(0, color="#7A7A85", linewidth=1.0, zorder=1)
+        # dashed lines at the current means, as in the FWL animation. They ride
+        # the cloud, so they start at the raw mean and finish sitting on zero,
+        # which is what "these are residuals now" looks like.
+        ax.axvline(float(np.mean(fr["X"])), color=MEANLINE, linewidth=1.8,
+                   linestyle=_MEANDASH, zorder=2)
+        ax.axhline(float(np.mean(fr["Y"])), color=MEANLINE, linewidth=1.8,
+                   linestyle=_MEANDASH, zorder=2)
         ax.scatter(fr["X"], fr["Y"], s=_POINT_SIZE, c=w, cmap=cmap, norm=norm,
                    alpha=0.85, edgecolors="white", linewidths=0.5, zorder=3)
         xx = np.array(fr["xlim"])
@@ -1197,7 +1276,51 @@ def confounder_animation():
         ])
 
 
+def cigar_data(n=600, seed=7):
+    """A made up cigar market, built so price reaches health only by way of
+    smoking. There is no direct arrow from price to health.
+
+    The numbers are invented but not silly: the implied price elasticity of
+    demand is about -0.8 at the mean, which sits in the range reported for
+    cigars, and the health index is an arbitrary 0 to 100 scale.
+    """
+    rng = np.random.default_rng(seed)
+    price = rng.uniform(4.0, 14.0, n)                      # dollars per cigar
+    cigars = 34.0 - 1.6 * price + rng.normal(0, 4.0, n)    # smoked per week
+    health = 88.0 - 0.9 * cigars + rng.normal(0, 4.0, n)   # 0 to 100 index
+    return price, cigars, health
+
+
 def mediator_animation():
+    """CHAIN. Controlling for the mediator DESTROYS the whole effect.
+
+    Same machinery as the confounder animation, opposite moral. Price of cigars
+    reaches health only through how much people smoke, so residualizing both
+    sides on cigars smoked takes the fitted line from about +1.5 health points
+    per dollar to nothing at all. This is the cigars and health DAG from a few
+    slides earlier, with data behind it.
+    """
+    price, cigars, health = cigar_data()
+    total = np.polyfit(price, health, 1)[0]
+    direct = np.polyfit(_partial(price, cigars), _partial(health, cigars), 1)[0]
+    return _residual_animation(
+        price, health, cigars, cbar_label="Cigars smoked per week",
+        title="Controlling for how much people smoke",
+        xlab_raw="Price of cigars (dollars)", xlab_res="Price, residual",
+        ylab_raw="Health score", ylab_res="Health score, residual",
+        fixed_scale=True,
+        captions=[
+            f"1. Made up market. Effect of price on health: {total:+.2f} a dollar",
+            "2. But price reaches health only by changing how much people smoke.",
+            "3. The total effect: the only route price has.",
+            "4. Remove the part of price explained by cigars smoked.",
+            "5. Remove the part of health explained by cigars smoked.",
+            "6. Both residuals now average exactly zero.",
+            f"7. Direct path only: {direct:+.2f}. The whole effect is gone.",
+        ])
+
+
+def wage_mediator_animation():
     """CHAIN. Controlling for the mediator DESTROYS part of a real effect.
 
     Same machinery as the confounder animation, opposite moral. The fitted line
@@ -1272,6 +1395,103 @@ def dag_mediator_paths():
             ("Education", "Earnings"): f"{p['edu_earn']:+.3f}",
             ("Experience", "Earnings"): f"{p['exp_earn']:+.3f}",
             ("Age", "Earnings"): f"{direct:+.3f} direct"})
+
+
+# ============================================== ch3 mediation analysis blocks
+_EX_HEAD = ("background:#2C7A3F; color:#ffffff; font-weight:700; "
+            "padding:3px 14px; border-radius:7px 7px 0 0; font-size:1.0em;")
+_EX_BODY = ("background:#EAF3EC; border:1px solid #CBDFCF; border-top:none; "
+            "border-radius:0 0 7px 7px; padding:8px 16px 10px 16px;")
+_BL_HEAD = ("background:#2A3B8F; color:#ffffff; font-weight:700; "
+            "padding:3px 14px; border-radius:7px 7px 0 0; font-size:1.0em;")
+_BL_BODY = ("background:#EAECF5; border:1px solid #C9CFE4; border-top:none; "
+            "border-radius:0 0 7px 7px; padding:8px 16px 10px 16px;")
+_EQ = ("margin:5px 0; font-style:italic; font-size:1.05em; color:#1A1A1A;")
+
+
+def _mpl_svg(fig, width="100%"):
+    """A matplotlib figure as inline SVG, scaled to its container."""
+    import io as _io
+    buf = _io.StringIO()
+    fig.savefig(buf, format="svg", bbox_inches="tight", transparent=True)
+    s = buf.getvalue()
+    s = s[s.index("<svg"):]
+    s = re.sub(r'\swidth="[0-9.]+pt"', ' width="%s"' % width, s, count=1)
+    s = re.sub(r'\sheight="[0-9.]+pt"', "", s, count=1)
+    return s
+
+
+# The talk's illustrative coefficients. Round on purpose: they are chosen so
+# the decomposition closes exactly and the two indirect routes both matter.
+_MED_POS = {"Age": (0.0, 1.0), "Education": (2.2, 3.0),
+            "Experience": (2.2, -1.0), "Earnings": (4.4, 1.0)}
+_MED_EDGES = [("Age", "Education"), ("Age", "Earnings"),
+              ("Age", "Experience"), ("Education", "Earnings"),
+              ("Experience", "Earnings")]
+_MED_LABELS = {("Age", "Education"): "-.20",
+               ("Education", "Earnings"): ".40",
+               ("Age", "Earnings"): ".10",
+               ("Age", "Experience"): ".50",
+               ("Experience", "Earnings"): ".30"}
+
+
+def _med_dag(labels):
+    return draw_dag(_MED_EDGES, pos=dict(_MED_POS), engine="matplotlib",
+                    fontsize=12, figscale=0.62, plain=True, arc=False,
+                    edge_labels=_MED_LABELS if labels else None)
+
+
+def mediation_puzzle():
+    """The talk's first mediation slide: one age coefficient, then another."""
+    from IPython.display import HTML
+    svg = _mpl_svg(_med_dag(labels=False), "62%")
+    return HTML(f"""
+<div style="{_EX_HEAD}">Example</div>
+<div style="{_EX_BODY}">
+  <div>I am given the following DAG:</div>
+  <div style="text-align:center; margin:4px 0 6px 0;">{svg}</div>
+  <div>I run the following two regressions of <i>age</i> on <i>earnings</i>:</div>
+  <div style="{_EQ}">&bull;&nbsp; Earnings = .17 (Age)</div>
+  <div style="{_EQ}">&bull;&nbsp; Earnings = .40 (Education) + .10 (Age) + .30 (Experience)</div>
+  <div style="margin-top:7px;">Two different coefficients. Why is the 2nd one
+    different? <b style="color:#73000A;">Overcontrol.</b></div>
+</div>""")
+
+
+def mediation_solution():
+    """The talk's second mediation slide: the other two regressions, every
+    coefficient on the graph, and the original coefficient rebuilt from it."""
+    from IPython.display import HTML
+    svg = _mpl_svg(_med_dag(labels=True), "100%")
+    return HTML(f"""
+<div style="display:flex; gap:20px; align-items:flex-start;">
+  <div style="flex:1 1 0; min-width:0;">
+    <div style="border-top:5px solid #73000A; margin-bottom:9px;"></div>
+    <div style="{_EX_HEAD}">Example</div>
+    <div style="{_EX_BODY}">
+      <div>I run the following additional regressions:</div>
+      <div style="{_EQ}">&bull;&nbsp; Education = -.20 (Age)</div>
+      <div style="{_EQ}">&bull;&nbsp; Experience = .50 (Age)</div>
+      <div style="margin-top:5px;">I add all coefficients to the graph as follows.</div>
+      <div style="margin-top:2px;">{svg}</div>
+    </div>
+  </div>
+  <div style="flex:1 1 0; min-width:0; color:#2A3B8F;">
+    <div style="border-top:5px solid #2A3B8F; margin-bottom:9px;"></div>
+    <div style="font-size:1.06em; line-height:1.45;">
+      Now we can see that the effect of age on earnings comes from three
+      channels. A direct effect, and two indirect effects through its effect on
+      experience and education. The original coefficient can be calculated
+      through this new graph:
+    </div>
+    <div style="{_EQ} color:#2A3B8F; font-size:1.12em; margin-top:12px;">
+      Coefficient = .10 + (-.20 * .40)
+    </div>
+    <div style="{_EQ} color:#2A3B8F; font-size:1.12em;">
+      &nbsp;&nbsp;&nbsp;&nbsp;+ (.50 * .30) = .17
+    </div>
+  </div>
+</div>""")
 
 
 # ================================================ degrees-of-freedom geometry
@@ -2053,6 +2273,45 @@ def fig_demeaning():
                    framealpha=0.9, loc="upper right")
     fig.suptitle("Fixed effects subtract each bucket's mean limit", fontsize=12,
                  color=INK, y=1.02)
+    fig.tight_layout(); plt.close(fig)
+    return fig
+
+
+def fig_fitted_by_group(saturated=False):
+    """The book's fitted values by risk bucket. With dummies alone every bucket
+    gets its own intercept and they all share one slope, so the lines are
+    parallel. Interact the treatment with the bucket and each bucket gets its
+    own slope too, including one that runs the wrong way on a thin group."""
+    import numpy as np
+    import pandas as pd
+    import statsmodels.formula.api as smf
+    d = pd.read_csv(_DATA / "risk_data_rnd.csv")
+    f = ("default ~ credit_limit * C(credit_score1_buckets)" if saturated
+         else "default ~ credit_limit + C(credit_score1_buckets)")
+    m = smf.ols(f, data=d).fit()
+    buckets = sorted(d["credit_score1_buckets"].unique())
+    cols = plt.cm.viridis(np.linspace(0.12, 0.88, len(buckets)))
+
+    fig, ax = plt.subplots(figsize=(8.4, 4.4), dpi=110)
+    fig.patch.set_facecolor("white"); ax.set_facecolor("white")
+    ax.grid(True, color=GRIDCOL, lw=0.8, zorder=0); ax.set_axisbelow(True)
+    for col, b in zip(cols, buckets):
+        sub = d[d["credit_score1_buckets"] == b]
+        grid = pd.DataFrame({"credit_limit": np.linspace(sub["credit_limit"].min(),
+                                                         sub["credit_limit"].max(), 40),
+                             "credit_score1_buckets": b})
+        ax.plot(grid["credit_limit"], m.predict(grid), color=col, lw=2.4,
+                zorder=3, label="%.0f" % b)
+    ax.set_xlabel("credit limit", fontsize=12)
+    ax.text(0, 1.02, "predicted default rate", transform=ax.transAxes,
+            ha="left", va="bottom", fontsize=12, color=INK)
+    ax.set_title("One slope for everyone" if not saturated
+                 else "A slope of its own for every bucket",
+                 fontsize=13.5, color=MADRID, weight="bold", pad=26)
+    ax.legend(title="score bucket", fontsize=8.5, title_fontsize=9,
+              framealpha=0.9, loc="upper right", ncol=2)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
     fig.tight_layout(); plt.close(fig)
     return fig
 
