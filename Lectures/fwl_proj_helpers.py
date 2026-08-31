@@ -42,7 +42,9 @@ try:
 except Exception:
     _FLASH_IMG = None
 
-FLASH_ROT = 270.0   # rotation that turns the lens to point straight down
+FLASH_ROT = 90.0    # the source image faces left, and rotate() runs counter
+#                     clockwise, so 90 puts the lens at the bottom. 270 puts the
+#                     tail cap there and the beam comes out of the battery end
 _ONE = np.array([1.0, 1.0, 1.0])
 _X = np.array([-1.0, 1.0, 3.0])
 _Y = np.array([2.0, 0.0, 4.0])       # gives beta0 = 1.5, beta1 = 0.5
@@ -453,8 +455,13 @@ def fig_ratio():
     # shadow of y-tilde lands on beta1 x-tilde
     _flash_down(ax, yt_h, yt_v, span=xt)
     ax.scatter([yt_h], [0], s=55, color=BLUE, zorder=5)
-    ax.text(yt_h, -0.34, "$\\beta_1\\tilde{\\mathbf{x}}$", color=BLUE,
-            fontsize=13, ha="center")
+    # the shadow is the demeaned fit, which is y-hat with its constant part
+    # taken off. NOT y-hat itself: y-hat is not perpendicular to the ones
+    # vector, so it does not live in the plane this figure draws
+    ax.text(yt_h, -0.36,
+            "$\\beta_1\\tilde{\\mathbf{x}} = \\widehat{\\tilde{\\mathbf{y}}}"
+            " = \\hat{\\mathbf{y}} - \\bar{y}\\mathbf{1}$",
+            color=BLUE, fontsize=12.5, ha="center", va="top")
     ax.axhline(0, color=INK, lw=1.0)
     ax.text(0.03, 0.94, "$\\tilde{\\mathbf{x}} = %s$" % _fmt(xtilde),
             transform=ax.transAxes, color=ACCENT, fontsize=12.5, weight="bold",
@@ -467,13 +474,47 @@ def fig_ratio():
             "{\\tilde{\\mathbf{x}}'\\tilde{\\mathbf{x}}} = \\dfrac{%d}{%d} = %g$"
             % (xty, xtx, b1), transform=ax.transAxes, fontsize=14, color=MADRID,
             va="top")
-    ax.set_xlim(-0.4, xt + 0.8)
-    ax.set_ylim(-0.75, yt_v + 1.35)
-    ax.set_xlabel("along $\\tilde{\\mathbf{x}}$  (demeaned x)", fontsize=12)
-    ax.text(0, 1.02, "leftover, perpendicular to x", transform=ax.transAxes,
+    # the two lengths whose ratio IS beta1, drawn under the axis so the ratio is
+    # something you can see rather than something you take on faith
+    # spell out where each length comes from, so the ratio is arithmetic the
+    # room can follow rather than two numbers that appear from nowhere
+    sq = " + ".join(("%g^2" if v >= 0 else "(%g)^2") % v for v in xtilde)
+    for yy, x_end, lab in ((-0.92, yt_h,
+                            "$\\beta_1\\|\\tilde{\\mathbf{x}}\\| = %g \\times %.2f = %.2f$"
+                            % (b1, xt, yt_h)),
+                           (-1.38, xt,
+                            "$\\|\\tilde{\\mathbf{x}}\\| = \\sqrt{%s} = \\sqrt{%d} = %.2f$"
+                            % (sq, xtx, xt))):
+        ax.annotate("", xy=(x_end, yy), xytext=(0, yy),
+                    arrowprops=dict(arrowstyle="<|-|>", lw=1.3, color=INK,
+                                    shrinkA=0, shrinkB=0))
+        ax.text(x_end / 2, yy - 0.10, lab, ha="center", va="top",
+                fontsize=11.5, color=INK)
+    # beta1 read as a ratio of the two lengths measured by the bars above. The
+    # notes carry why this is the same number as the 4 / 8 on the last slide
+    ax.text(xt + 0.05, -1.38,
+            "$\\beta_1 = \\dfrac{%.2f}{%.2f} = %g$" % (yt_h, xt, b1),
+            ha="left", va="center", fontsize=12, color=MADRID, weight="bold")
+    # name the dashed drop for what it is
+    # the leftover gets its arithmetic spelled out too, so all three lengths on
+    # this figure are derived rather than asserted
+    resid_v = ytilde - b1 * xtilde
+    rsq = " + ".join(("%g^2" if v >= 0 else "(%g)^2") % v for v in resid_v)
+    ax.text(yt_h + 0.30, yt_v * 0.55,
+            "leftover $= \\tilde{\\mathbf{y}} - \\beta_1\\tilde{\\mathbf{x}} = %s$\n"
+            "length $= \\sqrt{%s} = \\sqrt{%d} \\approx %.2f$"
+            % (_fmt(resid_v), rsq, int(round(resid_v @ resid_v)), yt_v),
+            ha="left", va="center", fontsize=10.5, color=INK)
+
+    ax.set_xlim(-0.4, xt + 1.25)
+    ax.set_ylim(-1.95, yt_v + 1.35)
+    ax.set_xlabel("Euclidean distance along $\\tilde{\\mathbf{x}}$", fontsize=12)
+    ax.text(0, 1.02, "Euclidean distance perpendicular to $\\tilde{\\mathbf{x}}$",
+            transform=ax.transAxes,
             ha="left", va="bottom", fontsize=11.5, color=INK)
-    ax.set_title("After demeaning, $\\beta_1$ is one ratio", fontsize=13.5,
-                 color=MADRID, weight="bold", pad=20)
+    # no title: the slide heading already says what this is, and the framing
+    # "beta1 is one ratio" is not how Robert presents it
+    ax.set_title("", pad=18)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
     fig.tight_layout()
