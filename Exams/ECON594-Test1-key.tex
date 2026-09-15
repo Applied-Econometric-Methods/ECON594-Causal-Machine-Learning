@@ -1,0 +1,584 @@
+\documentclass[12pt,answers]{exam}
+%\documentclass[12pt]{exam}
+\usepackage[utf8]{inputenc}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{multicol}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usepackage{multirow}
+\usepackage{adjustbox}
+\usepackage{url}
+\usepackage{endnotes}
+
+
+
+
+\newcommand{\class}{ECON 594}
+\newcommand{\term}{Fall 2026}
+\newcommand{\examnum}{Test 1 - Version\_A\_ ANSWER KEY}
+\newcommand{\examdate}{9/17/2026}
+\newcommand{\timelimit}{75 Minutes}
+
+
+
+\pagestyle{head}
+\firstpageheader{}{}{}
+\runningheader{\class}{\examnum\ - Page \thepage\ of \numpages}{\examdate}
+\runningheadrule
+
+
+
+% Create a True False question format
+\newcommand*{\TrueFalse}[1]{%
+	\ifprintanswers
+	\ifthenelse{\equal{#1}{T}}{%
+		\textbf{TRUE}\hspace*{14pt}False
+	}{
+	True\hspace*{14pt}\textbf{FALSE}
+}
+\else
+{True}\hspace*{20pt}False
+\fi
+}
+%% The following code is based on an answer by Gonzalo Medina
+%% http://tex.stackexchange.com/a/13106/39194
+\newlength\TFlengthA
+\newlength\TFlengthB
+\settowidth\TFlengthA{\hspace*{1.16in}}
+\newcommand\TFQuestion[2]{%
+	\setlength\TFlengthB{\linewidth}
+	\addtolength\TFlengthB{-\TFlengthA}
+	\parbox[t]{\TFlengthA}{\TrueFalse{#1}}\parbox[t]{\TFlengthB}{#2}}
+
+% Bigger / Smaller / No change, built the same way as the True False command above.
+% Pass B, S or N.
+\newcommand*{\BiggerSmaller}[1]{%
+	\ifprintanswers
+	\ifthenelse{\equal{#1}{B}}{%
+		\textbf{BIGGER}\hspace*{22pt}Smaller\hspace*{22pt}No change
+	}{%
+	\ifthenelse{\equal{#1}{S}}{%
+		Bigger\hspace*{22pt}\textbf{SMALLER}\hspace*{22pt}No change
+	}{%
+		Bigger\hspace*{22pt}Smaller\hspace*{22pt}\textbf{NO CHANGE}
+	}}
+	\else
+	Bigger\hspace*{40pt}Smaller\hspace*{40pt}No change
+	\fi
+}
+
+
+
+\begin{document}
+
+\noindent
+\begin{tabular*}{\textwidth}{l @{\extracolsep{\fill}} r @{\extracolsep{6pt}} l}
+\textbf{\class} & \textbf{Name:} & \makebox[2in]{\hrulefill}\\
+\textbf{\term} &&\\
+\textbf{\examnum} &&\\
+\textbf{\examdate} &&\\
+\textbf{Time Limit: \timelimit}  & \makebox[2in]{}
+\end{tabular*}\\
+\rule[2ex]{\textwidth}{2pt}
+
+The exam contains \numpages\ pages (including the cover page) and \numquestions\ questions. Point total is \numpoints.\\
+
+Reminder: laptops, phones, and calculators with graphing or memory capabilities are not allowed. A plain arithmetic calculator is. For multiple choice, check the appropriate bubbles; where three words are offered, circle one of them; where a box is provided, show your work inside it and circle your answer. Points will be deducted if you fail to do so. Draw a goose playing golf to the left of the grade table below for 1 extra credit point. You have limited time, so if you see a hard question, move on and come back to it later.
+
+
+\begin{center}
+Grade Table (for teacher use only)\\
+\addpoints
+\gradetable[v][questions]
+\end{center}
+
+\noindent
+\rule[2ex]{\textwidth}{2pt}
+
+
+
+
+
+\newpage
+\begin{questions}
+
+%======================================================== BACK DOORS
+\question[6] \textbf{Back Doors and Controls}\\
+
+A state hands out supplemental aid to school districts by a formula that gives more money per pupil to districts with higher poverty, and poverty lowers test scores on its own. Use that situation for the next six questions.
+
+\noaddpoints
+\begin{parts}
+
+
+\part[1]
+In the causal graph this situation implies, one back-door path runs from aid to test scores. Which variable closes it?
+
+\begin{checkboxes}
+	\choice A. Aid per pupil
+	\correctchoice B. The poverty rate
+	\choice C. Test scores
+	\choice D. Nothing closes it. The path stays open no matter what you condition on.
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+A regression of test scores on aid alone gives a negative slope. What would have to have been true about the way aid was handed out for that uncontrolled estimate to have been correct?
+
+\begin{checkboxes}
+	\correctchoice A. Aid handed out without regard to the poverty of the district, for instance by lottery, which cuts the arrow from poverty to aid
+	\choice B. Aid handed out in strict proportion to the poverty of the district, which makes the arrow from poverty to aid deterministic
+	\choice C. Test scores measured without error, which cuts the arrow from poverty to test scores
+	\choice D. Every district given the same aid per pupil
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+The researcher also has the age of each district's school buildings, which affects test scores but has nothing to do with how the aid formula works. Should she put it in the regression, and what would it do?
+
+\begin{checkboxes}
+	\choice A. Leave it out. It opens a back-door path from aid to test scores and so it adds bias.
+	\choice B. Put it in. It sits on a back-door path, so it removes bias, and the standard error falls as well.
+	\correctchoice C. Put it in. It does not sit on a back-door path, so the bias is unchanged, but it explains some variation in test scores and so the standard error falls.
+	\choice D. Leave it out. It does nothing to the bias and it raises the standard error.
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+Regressing test scores on aid alone gives a slope of $-0.901$. Adding the poverty rate, a common cause of both, moves the coefficient on aid to $+3$. Which estimate do you believe, and why?
+
+\begin{checkboxes}
+	\choice A. The uncontrolled one, because it uses more of the variation in aid
+	\choice B. The uncontrolled one, because adding a variable correlated with the treatment always biases the coefficient
+	\choice C. Neither, because a sign flip means the model is misspecified
+	\correctchoice D. The controlled one, because the uncontrolled one leaves a back door open through poverty
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+A district lands on the state watch list if either its poverty rate is high or its test scores are low. The researcher runs her regression on watch-list districts only. What has she done?
+
+\begin{checkboxes}
+	\choice A. Nothing that matters, since she still has variation in both aid and test scores
+	\choice B. Closed a back-door path, so her estimate is less biased than it was
+	\correctchoice C. Conditioned on a collider, which can create an association inside the watch list that is not there among all districts
+	\choice D. Conditioned on a confounder, which is the right thing to do
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+Aid raises test scores partly by paying for smaller classes. The researcher puts class size in the regression alongside aid and poverty. What is sitting in the coefficient on aid now?
+
+\begin{checkboxes}
+	\correctchoice A. Only the part of the effect of aid that does not run through class size, so it understates the total effect
+	\choice B. The total effect of aid, measured more precisely than before
+	\choice C. The same number as before, since class size is not a common cause of aid and test scores
+	\choice D. The effect of class size on test scores
+\end{checkboxes}
+
+\end{parts}
+\addpoints
+
+\newpage
+%======================================================== FWL
+\question[6] \textbf{Reading a Regression and Partialling Out}
+
+Same districts. Write $T$ for aid per pupil, $X$ for the poverty rate, and $Y$ for the test score. Let $\tilde{T}$ be the residual from a regression of $T$ on $X$ with an intercept, and $\tilde{Y}$ the residual from a regression of $Y$ on $X$ with an intercept.
+
+\noaddpoints
+\begin{parts}
+
+\part[1]
+In a regression of test scores on both aid and the poverty rate, the coefficient on aid is $3$. What does it mean?
+
+\begin{checkboxes}
+	\choice A. Across all districts, one hundred dollars more per pupil goes with three more points
+	\correctchoice B. Among districts with the same poverty rate, one hundred dollars more per pupil goes with three more points
+	\choice C. Among districts with the same test score, one hundred dollars more per pupil goes with three more points of poverty
+	\choice D. Aid triples test scores
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+In the units of the original variable, what is $\tilde{T}$?
+
+\begin{checkboxes}
+	\correctchoice A. Still aid per pupil, with the part that the poverty rate could predict taken out
+	\choice B. A unitless z-score of aid per pupil
+	\choice C. The poverty rate, with the part that aid could predict taken out
+	\choice D. Test scores, with the part that the poverty rate could predict taken out
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+Frisch, Waugh and Lovell say the coefficient on $T$ can be recovered another way: keep $\tilde{T}$, keep $\tilde{Y}$, then regress $\tilde{Y}$ on $\tilde{T}$. Which step is the one that removed the bias?
+
+\begin{checkboxes}
+	\choice A. Regressing $Y$ on $X$ and keeping the residual, which takes out of the outcome everything the control could account for
+	\choice B. Regressing $\tilde{Y}$ on $\tilde{T}$ through the origin
+	\choice C. Dropping the intercept from the final regression
+	\correctchoice D. Regressing $T$ on $X$ and keeping the residual, which takes out of the treatment everything the control could account for
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+How does the slope of $\tilde{Y}$ on $\tilde{T}$ compare with the coefficient on aid from the regression of test scores on aid and the poverty rate?
+
+\begin{checkboxes}
+	\choice A. It is close, and the gap shrinks as the sample grows
+	\choice B. It is the same size with the opposite sign
+	\correctchoice C. It is the same number, exactly
+	\choice D. There is no reason for the two to agree
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+Both $\tilde{T}$ and $\tilde{Y}$ sum to zero across the districts. What does that tell you?
+
+\begin{checkboxes}
+	\choice A. Aid and test scores are uncorrelated
+	\choice B. The poverty rate affects neither variable
+	\choice C. The sample is too small to estimate an intercept
+	\correctchoice D. What is left of each variable carries no constant, which is why the last regression has nothing for an intercept to do
+\end{checkboxes}
+
+\vspace{.75cm}
+\part[1]
+Aid rises with poverty, and poverty lowers test scores on its own. Which way is the uncontrolled estimate of the effect of aid biased, and how do you know without seeing the data?
+
+\begin{checkboxes}
+	\choice A. Upward, because the two effects carry the same sign
+	\correctchoice B. Downward, because aid is high exactly where something else is pushing the outcome down
+	\choice C. Not biased at all, only less precise
+	\choice D. The direction cannot be signed without the data
+\end{checkboxes}
+
+\end{parts}
+\addpoints
+
+\newpage
+%======================================================== GRADIENT DESCENT
+\question[10] \textbf{Gradient Descent}
+
+Three clinics joined a pilot. For each one, $x$ is the change in nurses per shift and $y$ is the change in patients seen per day.
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Clinic & 1 & 2 & 3 \\
+\midrule
+$x$: change in nurses per shift & $-1$ & $0$ & $1$ \\
+$y$: change in patients seen    & $1$  & $3$ & $5$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+Fit $y = b + m x$ by gradient descent on
+\[
+SSR = \sum_i \left(y_i - (b + m x_i)\right)^2 ,
+\qquad r_i = y_i - (b + m x_i) ,
+\]
+starting at $b = 0$ and $m = 0$ with a learning rate of $0.1$. Recall that
+Step Size $=$ Derivative $\times$ Learning Rate and New $=$ Current $-$ Step Size.
+
+\noaddpoints
+\begin{parts}
+
+\part[2]
+Derive $\dfrac{\partial\,SSR}{\partial b}$ with the chain rule. Show the outside piece, the inside piece, and the product.
+
+\begin{solutionorbox}[1.9in]
+	
+OUTSIDE PIECE: A single term is $r_i^2$, so
+$\dfrac{\partial\, r_i^2}{\partial r_i} = 2 r_i$.
+
+INSIDE PIECE: Given that $r_i = y_i - b - m x_i$, differentiate term by term with
+respect to $b$.
+
+ The inside piece is $0 - 1 - 0 = -1$.
+
+TOGETHER:
+The product is $2 r_i \times (-1) = -2 r_i$
+
+SSR:  $SSR$ is a sum over the three clinics, so
+\[
+\frac{\partial\, SSR}{\partial b} = -2 \sum_i r_i
+= -2 \sum_i \left(y_i - (b + m x_i)\right).
+\]
+\end{solutionorbox}
+
+\part[2]
+Derive $\dfrac{\partial\,SSR}{\partial m}$ the same way.
+
+\begin{solutionorbox}[1.9in]
+
+OUTSIDE PIECE: The same, $2 r_i$.
+
+INSIDE PIECE: Differentiating $r_i = y_i - b - m x_i$ with respect to $m$ gives the inside piece
+$0 - 0 - x_i = -x_i$.
+
+TOGETHER:
+The product is $2 r_i \times (-x_i) = -2 x_i r_i$, so
+
+SSR: 
+\[
+\frac{\partial\, SSR}{\partial m} = -2 \sum_i x_i r_i
+= -2 \sum_i x_i \left(y_i - (b + m x_i)\right).
+\]
+\end{solutionorbox}
+
+\newpage
+\part[1]
+At the starting values, write down the three residuals and compute the $SSR$.
+
+\begin{solutionorbox}[1.3in]
+With $b = 0$ and $m = 0$ every prediction is zero, so the residuals are $y$ itself:
+$r = 1,\ 3,\ 5$. Then $SSR = 1 + 9 + 25 = 35$.
+\end{solutionorbox}
+
+\part[4]
+Run three iterations. Fill in the table, and show the residuals you used for each row in the space beneath it.
+
+\ifprintanswers
+\else
+\begin{center}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+Iteration & $\sum_i r_i$ & $\sum_i x_i r_i$ & $\dfrac{\partial SSR}{\partial b}$ & $\dfrac{\partial SSR}{\partial m}$ & new $b$ & new $m$ \\
+\midrule
+1 & & & & & & \\[1.2cm]
+2 & & & & & & \\[1.2cm]
+3 & & & & & & \\[1.2cm]
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{3.5cm}
+\fi
+
+\begin{solution}
+\begin{center}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+Iteration & $\sum_i r_i$ & $\sum_i x_i r_i$ & $\dfrac{\partial SSR}{\partial b}$ & $\dfrac{\partial SSR}{\partial m}$ & new $b$ & new $m$ \\
+\midrule
+1 & $9$    & $4$    & $-18$   & $-8$    & $1.8$   & $0.8$   \\
+2 & $3.6$  & $2.4$  & $-7.2$  & $-4.8$  & $2.52$  & $1.28$  \\
+3 & $1.44$ & $1.44$ & $-2.88$ & $-2.88$ & $2.808$ & $1.568$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textit{Iteration 1.} At $b = 0$, $m = 0$ the residuals are $1,\ 3,\ 5$. Then
+$\sum r_i = 9$ and $\sum x_i r_i = (-1)(1) + (0)(3) + (1)(5) = 4$, so the derivatives are
+$-2(9) = -18$ and $-2(4) = -8$. The step sizes are $0.1(-18) = -1.8$ and $0.1(-8) = -0.8$,
+so $b = 0 - (-1.8) = 1.8$ and $m = 0 - (-0.8) = 0.8$.
+
+\textit{Iteration 2.} The predictions are $1.8 - 0.8 = 1.0$, then $1.8$, then
+$1.8 + 0.8 = 2.6$, so the residuals are $0,\ 1.2,\ 2.4$. Then $\sum r_i = 3.6$ and
+$\sum x_i r_i = 0 + 0 + 2.4 = 2.4$, the derivatives are $-7.2$ and $-4.8$, the step sizes are
+$-0.72$ and $-0.48$, and $b = 2.52$, $m = 1.28$.
+
+\textit{Iteration 3.} The predictions are $2.52 - 1.28 = 1.24$, then $2.52$, then
+$2.52 + 1.28 = 3.80$, so the residuals are $-0.24,\ 0.48,\ 1.20$. Then $\sum r_i = 1.44$ and
+$\sum x_i r_i = 0.24 + 0 + 1.20 = 1.44$, the derivatives are both $-2.88$, both step sizes are
+$-0.288$, and $b = 2.808$, $m = 1.568$.
+
+The $SSR$ falls at every step: $35 \to 7.2 \to 1.728 \to 0.484$.
+\end{solution}
+
+\part[1]
+What pair is the walk heading toward, and why does the intercept move here when it never moved in the residualised example from class?
+
+\begin{solutionorbox}[1.8in]
+It is heading to $b = 3$ and $m = 2$, the least squares fit, which here runs exactly through
+all three points.
+
+The intercept moves because $\sum_i r_i$ is not zero at the start: the changes in patients seen
+average $3$, not $0$, so there is something for a constant to explain. In the residualised
+example both $\tilde{T}$ and $\tilde{Y}$ already summed to zero, which forced $\sum_i r_i = 0$
+and therefore $\partial SSR / \partial b = 0$ at every step.
+\end{solutionorbox}
+
+\end{parts}
+\addpoints
+
+\newpage
+%======================================================== STANDARD ERRORS
+\question[6] \textbf{Bigger or Smaller}
+
+Back to the districts. The researcher is estimating the effect of aid per pupil $T$ on test
+scores $Y$, controlling for the poverty rate $X$, and the standard error on the coefficient of
+interest is
+\[
+SE(\hat\beta) \;=\; \frac{\sigma(\hat\varepsilon)}{\sigma(\tilde{T})\,\sqrt{n-k}} ,
+\]
+where $\hat\varepsilon$ is the residual from the model, $\tilde{T}$ is the residualised
+treatment, and $k$ is the number of parameters estimated, counting the intercept.
+
+For each change below, circle whether the standard error on aid gets bigger, gets smaller, or
+does not change. Assume everything else about the study stays as it is.
+
+\noaddpoints
+\begin{parts}
+
+\part[1]
+She adds the age of each district's school buildings. It predicts test scores well, and it has
+nothing to do with how the aid formula works.
+
+\hspace*{2em}\BiggerSmaller{S}
+
+\begin{solution}
+Smaller. This is a neutral control: it sits on no back-door path, so the bias is untouched, but
+it explains part of the outcome, which shrinks $\sigma(\hat\varepsilon)$. This is the denoising
+step of FWL doing its job, and it is worth doing even in a clean experiment.
+\end{solution}
+
+\vspace{.5cm}
+\part[1]
+She adds a variable that predicts aid per pupil almost perfectly but has no effect on test
+scores.
+
+\hspace*{2em}\BiggerSmaller{B}
+
+\begin{solution}
+Bigger. A noise-inducing control. It eats the variation in the treatment, so $\sigma(\tilde{T})$
+falls while the numerator stays put. It buys nothing in bias and costs precision.
+\end{solution}
+
+\vspace{.5cm}
+\part[1]
+She drops a confounder that strongly predicts aid but barely predicts test scores.
+
+\hspace*{2em}\BiggerSmaller{S}
+
+\begin{solution}
+Smaller. Dropping it gives the treatment back its variation, so $\sigma(\tilde{T})$ rises, and
+it costs almost nothing in the numerator. The catch is that it is a confounder, so the estimate
+is now biased. This is the bias-variance trade-off in feature selection: sometimes a little bias
+is worth a large gain in precision.
+\end{solution}
+
+\vspace{.5cm}
+\part[1]
+She adds twenty controls that predict neither aid nor test scores.
+
+\hspace*{2em}\BiggerSmaller{B}
+
+\begin{solution}
+Bigger. They do nothing for $\sigma(\hat\varepsilon)$ or $\sigma(\tilde{T})$, but each one costs
+a degree of freedom, so $n - k$ shrinks.
+\end{solution}
+
+\vspace{.5cm}
+\part[1]
+She tests the coefficient against a null of $2$ instead of a null of no effect.
+
+\hspace*{2em}\BiggerSmaller{N}
+
+\begin{solution}
+No change. The standard error describes the spread of the estimate across repeated samples. It
+has nothing to do with the number you test against, which only moves the $t$ statistic.
+\end{solution}
+
+\vspace{.5cm}
+\part[1]
+She gets the same variables on 200 more districts.
+
+\hspace*{2em}\BiggerSmaller{S}
+
+\begin{solution}
+Smaller. $n$ rises, so $\sqrt{n-k}$ rises.
+\end{solution}
+
+\end{parts}
+\addpoints
+
+%======================================================== CROSS VALIDATION
+\question[4] \textbf{Cross Validation}
+\noaddpoints
+\begin{parts}
+
+\part[1]
+Why is the error a candidate makes on the very data it was fit to a poor way to choose among candidates?
+
+\begin{checkboxes}
+	\choice A. It is always larger than the error on new data
+	\choice B. It cannot be computed until the model is refit
+	\choice C. It ignores the intercept
+	\correctchoice D. A flexible enough candidate can drive it near zero by fitting the noise in that particular sample, so it rewards the wrong thing
+\end{checkboxes}
+
+\vspace{.35cm}
+\part[1]
+You split the districts into four blocks and run four-fold cross validation on one candidate. How many times is the candidate fit, and what is each block used for?
+
+\begin{checkboxes}
+	\choice A. Once, with all four blocks used for training
+	\choice B. Four times, and each block is held out for testing three times
+	\correctchoice C. Four times, and each block is held out for testing once and used for training in the other three fits
+	\choice D. Once per district, so as many times as there are districts
+\end{checkboxes}
+
+\vspace{.35cm}
+\part[1]
+Three candidates, scored two ways:
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Specification & Error on its own sample & Cross validation error \\
+\midrule
+Straight line              & 8.10 & 8.40 \\
+Cubic                      & 4.90 & 5.20 \\
+Degree twelve polynomial   & 0.30 & 14.70 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Which one do you take to a district you have not seen?
+
+\begin{checkboxes}
+	\choice A. The degree twelve polynomial, since its error is by far the smallest
+	\correctchoice B. The cubic, since it has the lowest cross validation error
+	\choice C. The straight line, since it is the simplest
+	\choice D. Any of them, since the two columns disagree and so neither is reliable
+\end{checkboxes}
+
+\vspace{.35cm}
+\part[1]
+Before fitting, you have to pick the strength of a penalty. How does cross validation help?
+
+\begin{checkboxes}
+	\correctchoice A. Score a grid of candidate values the same way you would score a model, and keep the value with the lowest cross validation error
+	\choice B. It picks the value that makes the error on the fitting sample smallest
+	\choice C. It removes the need for a penalty
+	\choice D. The penalty has to come from theory, so cross validation cannot help
+\end{checkboxes}
+
+\end{parts}
+\addpoints
+\newpage
+{\LARGE
+This page intentionally left blank. }
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{questions}
+%\theanswers
+
+\end{document}
