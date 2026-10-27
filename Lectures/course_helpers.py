@@ -2585,6 +2585,430 @@ def fig_ps_balance():
     return fig
 
 
+# ================================================= propensity score, the villages
+
+
+def clinic_data():
+    """Nine villages, four of which an NGO gave a health clinic. Treatment was
+    assigned on need, so the treated villages were poorer and worse doctored
+    before the program ran. Small enough to match by hand, which is the point."""
+    import pandas as pd
+    return pd.DataFrame({
+        "village": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        "T":       [1, 1, 1, 1, 0, 0, 0, 0, 0],
+        "imrate":  [10, 15, 22, 19, 25, 19, 4, 8, 6],
+        "povrate": [.5, .6, .7, .6, .6, .5, .1, .3, .2],
+        "pcdocs":  [.01, .02, .01, .02, .01, .02, .04, .05, .04],
+    })
+
+
+def _clinic_scored():
+    """The villages with the propensity score the logit of treatment on the two
+    covariates gives. Matches what Stata's `logistic T povrate pcdocs` reports
+    to seven decimals."""
+    import statsmodels.formula.api as smf
+    if "clinic" not in _PS_CACHE:
+        d = clinic_data()
+        m = smf.logit("T ~ povrate + pcdocs", data=d).fit(disp=0)
+        _PS_CACHE["clinic"] = (d.assign(ps=m.predict(d)), m)
+    return _PS_CACHE["clinic"]
+
+
+def clinic_matches():
+    """Each treated village's nearest untreated village by propensity score."""
+    d, _ = _clinic_scored()
+    out = {}
+    untreated = d.query("T == 0")
+    for _, row in d.query("T == 1").iterrows():
+        j = (untreated["ps"] - row["ps"]).abs().idxmin()
+        out[int(row["village"])] = int(d.loc[j, "village"])
+    return out
+
+
+def fig_clinic_match():
+    """The nine villages on one propensity score axis, treated above and
+    untreated below, with an arrow from each treated village to the untreated
+    one it matches. Village 5 is the only untreated village inside the treated
+    range, so three of the four arrows land on it, and villages 7, 8 and 9 sit
+    so far left that nothing will ever match them."""
+    d, _ = _clinic_scored()
+    match = clinic_matches()
+    # Villages 2 and 4 share a score, and 7 and 9 nearly do, so stack ties away
+    # from the axis instead of letting one marker hide another.
+    pos, seen = {}, {}
+    for _, r in d.iterrows():
+        row = 1 if r["T"] == 1 else 0
+        key = (row, round(float(r["ps"]), 1))
+        k = seen.get(key, 0)
+        seen[key] = k + 1
+        pos[int(r["village"])] = (float(r["ps"]),
+                                  row + (0.17 * k if row else -0.17 * k))
+    fig, ax = plt.subplots(figsize=(10.4, 4.4), dpi=110)
+    fig.patch.set_facecolor("white"); ax.set_facecolor("white")
+    ax.grid(True, axis="x", color=GRIDCOL, lw=0.8, zorder=0)
+    ax.set_axisbelow(True)
+    for v, (x, yy) in pos.items():
+        col = _TREAT if yy >= 0.5 else _CTRL
+        ax.scatter([x], [yy], s=330, color=col, zorder=4,
+                   edgecolors="white", lw=1.4)
+        ax.annotate(str(v), (x, yy), color="white", fontsize=11,
+                    weight="bold", ha="center", va="center", zorder=5)
+    for a, b in match.items():
+        x0, y0 = pos[a]
+        x1, y1 = pos[b]
+        ax.annotate("", xy=(x1, y1 + 0.1), xytext=(x0, y0 - 0.1),
+                    arrowprops=dict(arrowstyle="->", lw=1.6, color=INK,
+                                    alpha=0.5,
+                                    connectionstyle="arc3,rad=0.18"), zorder=3)
+    lo = d.query("T == 1")["ps"].min()
+    ax.axvspan(0, lo, color=MADRID, alpha=0.07, zorder=1)
+    ax.text(lo / 2, 0.5, "no treated village\nthis far left", ha="center",
+            va="center", fontsize=10, color=INK, alpha=0.75)
+    ax.set_yticks([0, 1]); ax.set_yticklabels(["untreated", "clinic"], fontsize=11)
+    ax.set_ylim(-0.45, 1.45); ax.set_xlim(-0.02, 1.02)
+    ax.set_xlabel("propensity score, $P(\\mathrm{clinic} \\mid X)$", fontsize=12)
+    ax.set_title("Each treated village reaches for its nearest untreated match",
+                 fontsize=13, color=MADRID, weight="bold", pad=18)
+    for s in ("top", "right", "left"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout(); plt.close(fig)
+    return fig
+
+
+def fig_clinic_scores():
+    """The nine villages on the propensity score axis in the same style as the
+    matching figures, with no arrows. The shading marks the two stretches where
+    one group has villages and the other has none: below the lowest treated
+    score (villages 6 through 9) and above the highest untreated score
+    (village 3)."""
+    d, _ = _clinic_scored()
+    pos, seen = {}, {}
+    for _, r in d.iterrows():
+        row = 1 if r["T"] == 1 else 0
+        key = (row, round(float(r["ps"]), 1))
+        k = seen.get(key, 0)
+        seen[key] = k + 1
+        pos[int(r["village"])] = (float(r["ps"]),
+                                  row + (0.17 * k if row else -0.17 * k))
+    fig, ax = plt.subplots(figsize=(10.4, 4.4), dpi=110)
+    fig.patch.set_facecolor("white"); ax.set_facecolor("white")
+    ax.grid(True, axis="x", color=GRIDCOL, lw=0.8, zorder=0)
+    ax.set_axisbelow(True)
+    for v, (x, yy) in pos.items():
+        col = _TREAT if yy >= 0.5 else _CTRL
+        ax.scatter([x], [yy], s=330, color=col, zorder=4,
+                   edgecolors="white", lw=1.4)
+        ax.annotate(str(v), (x, yy), color="white", fontsize=11,
+                    weight="bold", ha="center", va="center", zorder=5)
+    lo = d.query("T == 1")["ps"].min()
+    hi = d.query("T == 0")["ps"].max()
+    ax.axvspan(-0.02, lo, color=MADRID, alpha=0.07, zorder=1)
+    ax.axvspan(hi, 1.02, color=MADRID, alpha=0.07, zorder=1)
+    ax.text(lo / 2, 0.5, "no treated village\nthis far left", ha="center",
+            va="center", fontsize=10, color=INK, alpha=0.75)
+    ax.text((hi + 1.02) / 2, 0.5, "no untreated\nvillage this\nfar right",
+            ha="center", va="center", fontsize=10, color=INK, alpha=0.75)
+    ax.set_yticks([0, 1]); ax.set_yticklabels(["untreated", "clinic"], fontsize=11)
+    ax.set_ylim(-0.45, 1.45); ax.set_xlim(-0.02, 1.02)
+    ax.set_xlabel("propensity score, $P(\\mathrm{clinic} \\mid X)$", fontsize=12)
+    ax.set_title("Where each group has villages the other lacks",
+                 fontsize=13, color=MADRID, weight="bold", pad=18)
+    for s_ in ("top", "right", "left"):
+        ax.spines[s_].set_visible(False)
+    fig.tight_layout(); plt.close(fig)
+    return fig
+
+
+def clinic_matches_reverse():
+    """Each untreated village's nearest treated village by propensity score.
+    Villages 2 and 4 have identical covariates, so village 5 ties between them;
+    a tie keeps every village at the minimum distance and averages them later,
+    the way Stata's teffects psmatch does. Returns {village: [matches]}."""
+    d, _ = _clinic_scored()
+    out = {}
+    treated = d.query("T == 1")
+    for _, row in d.query("T == 0").iterrows():
+        gap = (treated["ps"] - row["ps"]).abs()
+        out[int(row["village"])] = [int(v) for v in
+                                    treated.loc[gap <= gap.min() + 1e-12, "village"]]
+    return out
+
+
+def clinic_effects():
+    """Matching ATT, ATU and ATE for the villages. Each village's missing
+    outcome is the (average) outcome of its match in the other arm; the ATE is
+    the average of all nine imputed gaps, which equals the share weighted mix
+    of ATT and ATU."""
+    d, _ = _clinic_scored()
+    y = d.set_index("village")["imrate"]
+    fwd, rev = clinic_matches(), clinic_matches_reverse()
+    att_gaps = {v: y[v] - y[m] for v, m in fwd.items()}
+    atu_gaps = {v: y[ms].mean() - y[v] for v, ms in rev.items()}
+    att = float(np.mean(list(att_gaps.values())))
+    atu = float(np.mean(list(atu_gaps.values())))
+    n1, n0 = len(att_gaps), len(atu_gaps)
+    ate = float(np.mean(list(att_gaps.values()) + list(atu_gaps.values())))
+    assert abs(ate - (n1 * att + n0 * atu) / (n1 + n0)) < 1e-12
+    return dict(att=att, atu=atu, ate=ate, att_gaps=att_gaps,
+                atu_gaps=atu_gaps, n1=n1, n0=n0)
+
+
+def fig_clinic_match_reverse():
+    """The same nine villages, now with an arrow from each untreated village up
+    to the treated village it matches. Village 5 ties between 2 and 4, so it
+    gets two arrows. Villages 6, 7, 8 and 9 all land on village 1, and 7, 8
+    and 9 have to cross the whole shaded gap to get there."""
+    d, _ = _clinic_scored()
+    rev = clinic_matches_reverse()
+    pos, seen = {}, {}
+    for _, r in d.iterrows():
+        row = 1 if r["T"] == 1 else 0
+        key = (row, round(float(r["ps"]), 1))
+        k = seen.get(key, 0)
+        seen[key] = k + 1
+        pos[int(r["village"])] = (float(r["ps"]),
+                                  row + (0.17 * k if row else -0.17 * k))
+    fig, ax = plt.subplots(figsize=(10.4, 4.4), dpi=110)
+    fig.patch.set_facecolor("white"); ax.set_facecolor("white")
+    ax.grid(True, axis="x", color=GRIDCOL, lw=0.8, zorder=0)
+    ax.set_axisbelow(True)
+    for v, (x, yy) in pos.items():
+        col = _TREAT if yy >= 0.5 else _CTRL
+        ax.scatter([x], [yy], s=330, color=col, zorder=4,
+                   edgecolors="white", lw=1.4)
+        ax.annotate(str(v), (x, yy), color="white", fontsize=11,
+                    weight="bold", ha="center", va="center", zorder=5)
+    lo = d.query("T == 1")["ps"].min()
+    for a, ms in rev.items():
+        for b in ms:
+            x0, y0 = pos[a]
+            x1, y1 = pos[b]
+            far = x0 < lo - 0.05
+            # a stacked target (village 4 above 2) is reached from the side
+            end = (x1 + 0.025, y1) if y1 > 1 else (x1, y1 - 0.1)
+            ax.annotate("", xy=end, xytext=(x0, y0 + 0.1),
+                        arrowprops=dict(arrowstyle="->", lw=1.6,
+                                        color=MADRID if far else INK,
+                                        alpha=0.75 if far else 0.5,
+                                        connectionstyle="arc3,rad=-0.12"),
+                        zorder=3)
+    ax.axvspan(0, lo, color=MADRID, alpha=0.07, zorder=1)
+    ax.text(lo / 2, -0.3, "7, 8 and 9 must cross the whole gap", ha="center",
+            va="center", fontsize=10, color=MADRID, alpha=0.9)
+    x5, _ = pos[5]
+    ax.text(x5 + 0.03, 0.5, "Village 5 ties\nbetween 2 and 4,\nso it takes\ntheir average",
+            ha="left", va="center", fontsize=10, color=INK, alpha=0.75)
+    ax.set_yticks([0, 1]); ax.set_yticklabels(["untreated", "clinic"], fontsize=11)
+    ax.set_ylim(-0.45, 1.45); ax.set_xlim(-0.02, 1.02)
+    ax.set_xlabel("propensity score, $P(\\mathrm{clinic} \\mid X)$", fontsize=12)
+    ax.set_title("Each untreated village reaches for its nearest treated match",
+                 fontsize=13, color=MADRID, weight="bold", pad=18)
+    for s_ in ("top", "right", "left"):
+        ax.spines[s_].set_visible(False)
+    fig.tight_layout(); plt.close(fig)
+    return fig
+
+
+_SAME_COVS = ["tenure", "last_engagement_score", "department_score",
+              "n_of_reports"]
+
+
+def same_score_pair(tol=1e-4):
+    """The treated and untreated manager whose propensity scores agree to within
+    tol and whose covariates are furthest apart, measured in standard
+    deviations. Returns the two rows, the per covariate gaps in standard
+    deviations, and the same gaps for the group means in a narrow score band."""
+    import pandas as pd
+    if "samescore" not in _PS_CACHE:
+        df = _ps_frame()
+        sd = df[_SAME_COVS].std()
+        tr = df.query("intervention == 1")
+        ct = df.query("intervention == 0").sort_values("propensity_score")
+        cps = ct["propensity_score"].to_numpy()
+        cX = ct[_SAME_COVS].to_numpy() / sd.to_numpy()
+        best = (-1.0, None, None)
+        for ps, row in zip(tr["propensity_score"].to_numpy(),
+                           tr[_SAME_COVS].to_numpy() / sd.to_numpy()):
+            lo = np.searchsorted(cps, ps - tol)
+            hi = np.searchsorted(cps, ps + tol)
+            if hi <= lo:
+                continue
+            gaps = np.abs(cX[lo:hi] - row).sum(1)
+            k = int(gaps.argmax())
+            if gaps[k] > best[0]:
+                best = (float(gaps[k]), row * sd.to_numpy(),
+                        cX[lo + k] * sd.to_numpy())
+        total, a, b = best
+        band = df.query("0.55 < propensity_score < 0.60")
+        grp = ((band.query("intervention == 1")[_SAME_COVS].mean()
+                - band.query("intervention == 0")[_SAME_COVS].mean()).abs()
+               / sd)
+        pair = pd.Series(np.abs(a - b) / sd.to_numpy(), index=_SAME_COVS)
+        _PS_CACHE["samescore"] = (
+            pd.Series(a, index=_SAME_COVS), pd.Series(b, index=_SAME_COVS),
+            pair, grp, len(band), total)
+    return _PS_CACHE["samescore"]
+
+
+def fig_same_score():
+    """Two managers can share a propensity score and share nothing else, and it
+    still does not break the method. Left: everyone whose score falls in a
+    narrow band, with the worst matched pair in that band joined by a line.
+    Right: how far apart that pair is, against how far apart the treated and
+    untreated group means are over the same band. The pair is nowhere near its
+    partner; the groups sit on top of each other."""
+    df = _ps_frame()
+    a, b, pair, grp, n_band, total = same_score_pair()
+    band = df.query("0.55 < propensity_score < 0.60")
+    fig, axes = plt.subplots(1, 2, figsize=(11.4, 4.5), dpi=110,
+                             gridspec_kw=dict(width_ratios=[1.25, 1]))
+    fig.patch.set_facecolor("white")
+    ax = axes[0]
+    ax.set_facecolor("white")
+    ax.grid(True, color=GRIDCOL, lw=0.8, zorder=0); ax.set_axisbelow(True)
+    for grp_v, col, mk, lab in ((0, _CTRL, "o", "untreated"),
+                                (1, _TREAT, "^", "treated")):
+        m = band["intervention"] == grp_v
+        ax.scatter(band.loc[m, "tenure"], band.loc[m, "last_engagement_score"],
+                   s=14, color=col, marker=mk, alpha=0.35, edgecolors="none",
+                   zorder=3, label=lab)
+    ax.plot([a["tenure"], b["tenure"]],
+            [a["last_engagement_score"], b["last_engagement_score"]],
+            "-", color=INK, lw=1.6, zorder=5)
+    ax.scatter([a["tenure"]], [a["last_engagement_score"]], s=150,
+               color=_TREAT, marker="^", edgecolors=INK, lw=1.4, zorder=6)
+    ax.scatter([b["tenure"]], [b["last_engagement_score"]], s=150,
+               color=_CTRL, edgecolors=INK, lw=1.4, zorder=6)
+    ax.legend(fontsize=9.5, framealpha=0.92, loc="lower right")
+    ax.set_xlabel("tenure", fontsize=11.5)
+    ax.text(0, 1.03, "last engagement score", transform=ax.transAxes,
+            ha="left", va="bottom", fontsize=11.5, color=INK)
+    ax.set_title("Managers scoring between 0.55 and 0.60", fontsize=12.5,
+                 color=MADRID, weight="bold", pad=22)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+
+    ax = axes[1]
+    ax.set_facecolor("white")
+    ax.grid(True, axis="x", color=GRIDCOL, lw=0.8, zorder=0)
+    ax.set_axisbelow(True)
+    pos = np.arange(len(_SAME_COVS))
+    ax.barh(pos + 0.2, pair.values, height=0.38, color=MADRID, alpha=0.85,
+            zorder=3, label="that one pair")
+    ax.barh(pos - 0.2, grp.values, height=0.38, color=ACCENT, alpha=0.9,
+            zorder=3, label="the two group means")
+    ax.set_yticks(pos)
+    ax.set_yticklabels([c.replace("_", " ") for c in _SAME_COVS], fontsize=10)
+    ax.invert_yaxis()
+    ax.set_xlabel("difference, in standard deviations", fontsize=11.5)
+    ax.legend(fontsize=9.5, framealpha=0.92, loc="lower right")
+    ax.set_title("Apart as a pair, together as a group", fontsize=12.5,
+                 color=MADRID, weight="bold", pad=22)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout(); plt.close(fig)
+    return fig
+
+
+def entropy_balance(Xc, target, q=None):
+    """Weights on the control rows whose weighted means equal target, staying as
+    close to the base weights q as those constraints allow.
+
+    Solved in its dual, where the weights come out as exp(-lambda'x) and the
+    objective is convex, so there is one answer and a plain optimizer finds it.
+    Returns weights summing to one. If the target sits outside the convex hull
+    of Xc there is no answer, and what comes back instead piles the weight onto
+    whichever rows sit nearest the boundary: check the achieved means."""
+    from scipy.optimize import minimize
+    Xc = np.asarray(Xc, dtype=float)
+    target = np.asarray(target, dtype=float)
+    # Solve in standardised units. The multipliers then sit on a comparable
+    # scale whatever the covariates are measured in, and the bound below keeps
+    # an infeasible target from sending one of them off to infinity.
+    mu, sd = Xc.mean(0), Xc.std(0)
+    sd = np.where(sd == 0, 1.0, sd)
+    Z, tz = (Xc - mu) / sd, (target - mu) / sd
+    logq = np.zeros(len(Xc)) if q is None else np.log(np.asarray(q, float))
+
+    def dual(lam):
+        z = logq - Z @ lam
+        top = z.max()
+        return top + np.log(np.exp(z - top).sum()) + lam @ tz
+
+    def grad(lam):
+        z = logq - Z @ lam
+        w = np.exp(z - z.max())
+        w /= w.sum()
+        return tz - w @ Z
+
+    lam = minimize(dual, np.zeros(Z.shape[1]), jac=grad, method="L-BFGS-B",
+                   bounds=[(-60.0, 60.0)] * Z.shape[1]).x
+    z = logq - Z @ lam
+    w = np.exp(z - z.max())
+    return w / w.sum()
+
+
+def ps_learner_scores():
+    """Propensity scores for the management training data, three readings of
+    the same question. The logit the deck has used all along, a random forest
+    read in sample, and that same forest read out of fold. Cached, because the
+    slides want the figure and the numbers without fitting the forest twice."""
+    import pandas as pd
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import cross_val_predict, StratifiedKFold
+    if "learner" not in _PS_CACHE:
+        df = _ps_frame()
+        X = pd.get_dummies(
+            df[["tenure", "last_engagement_score", "department_score",
+                "n_of_reports", "gender", "role"]],
+            columns=["n_of_reports", "gender", "role"],
+            drop_first=True).astype(float)
+        t = df["intervention"].to_numpy()
+        forest = RandomForestClassifier(n_estimators=300, random_state=1,
+                                        n_jobs=-1)
+        e_in = forest.fit(X, t).predict_proba(X)[:, 1]
+        cv = StratifiedKFold(5, shuffle=True, random_state=1)
+        e_oof = cross_val_predict(forest, X, t, cv=cv,
+                                  method="predict_proba")[:, 1]
+        _PS_CACHE["learner"] = (df["propensity_score"].to_numpy(), e_in, e_oof)
+    return _PS_CACHE["learner"]
+
+
+def fig_ps_out_of_fold():
+    """Three readings of the same treatment model. The logit's scores are
+    modest and the two groups overlap everywhere. The forest read in sample
+    splits them outright, because it has memorised who was trained. Read out
+    of fold, that same forest is barely better than guessing, so the in-sample
+    separation was never a finding about the data. Vertical scales differ by
+    panel; the shape of each distribution is what the slide is about."""
+    df = _ps_frame()
+    t = df["intervention"].to_numpy()
+    scores = ps_learner_scores()
+    titles = ("Logit, in sample", "Forest, in sample", "Forest, out of fold")
+    bins = np.linspace(0, 1, 41)
+    fig, axes = plt.subplots(1, 3, figsize=(12.0, 4.4), dpi=110)
+    fig.patch.set_facecolor("white")
+    for ax, e, ttl in zip(axes, scores, titles):
+        ax.set_facecolor("white")
+        ax.grid(True, color=GRIDCOL, lw=0.8, zorder=0); ax.set_axisbelow(True)
+        for grp, col, lab in ((0, _CTRL, "untreated"), (1, _TREAT, "treated")):
+            m = t == grp
+            ax.hist(e[m], bins=bins, weights=np.full(m.sum(), 1.0 / m.sum()),
+                    color=col, alpha=0.55, label=lab, zorder=3)
+        acc = float(np.mean((e > 0.5) == (t == 1)))
+        ax.set_title(ttl, fontsize=12.5, color=MADRID, weight="bold", pad=22)
+        ax.set_xlabel("estimated propensity score\n(names the treated %.0f%%"
+                      " of the time)" % (100 * acc), fontsize=11.5)
+        ax.set_xlim(0, 1)
+        for s in ("top", "right"):
+            ax.spines[s].set_visible(False)
+    axes[0].text(0, 1.03, "share of group", transform=axes[0].transAxes,
+                 ha="left", va="bottom", fontsize=11.5, color=INK)
+    axes[0].legend(fontsize=9.5, framealpha=0.92)
+    fig.tight_layout(); plt.close(fig)
+    return fig
+
+
 def ps_positivity_data(seed=7, n=1000):
     """Simulated data where the confounder decides treatment almost outright,
     so the groups barely overlap. True ATE is 1 by construction."""
