@@ -51,6 +51,20 @@ except ImportError:
     pass
 
 
+def _ensure_ffmpeg():
+    """Set the video rcParams again at call time. A plt.style.use("default")
+    anywhere in a deck resets animation.ffmpeg_path to the bare "ffmpeg", which
+    is not on the PATH here, and the animation then refuses to render."""
+    matplotlib.rcParams["animation.embed_limit"] = 100
+    matplotlib.rcParams["animation.bitrate"] = -1
+    matplotlib.rcParams["animation.ffmpeg_args"] = ["-crf", "18", "-preset", "slow"]
+    try:
+        import imageio_ffmpeg
+        matplotlib.rcParams["animation.ffmpeg_path"] = imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        pass
+
+
 # ============================================================== DAGs
 def _wrap_label(label, width=13):
     """Break a long node label across lines.
@@ -860,6 +874,130 @@ def fwl_animation(seed=42):
                 va="bottom", fontsize=11, color=INK)
         for s in ("top", "right"):
             ax.spines[s].set_visible(False)
+
+    anim = animation.FuncAnimation(fig, draw, frames=frames, interval=1000 / _FPS)
+    plt.close(fig)
+    return anim
+
+
+def ice_cream_animation(df, t="price", y="sales", t_res="price_res", y_res="sales_res",
+                        hue="weekday", n=1000, seed=123):
+    """The deck 04 FWL animation again, on the ice cream data, with the two hats
+    being cross-predicted boosted trees instead of group means.
+
+    df carries the raw columns and the residual columns as deck 18 builds them
+    (residual plus the raw mean, for the static plots). The animation shows the
+    residuals as residuals, centred on zero, so the means are taken back off.
+    Slopes in the captions come from the full frame; the cloud is a sample.
+
+    1 raw cloud, 2 colour by weekday, 3 naive fit (wrong sign), 4 debias
+    (price minus M_t), 5 denoise (sales minus M_y) and the final slope, then
+    6 and 7 add the means back so the last frame is the deck's static plot.
+    """
+    _ensure_ffmpeg()
+    tr_full = df[t_res] - df[t].mean()
+    yr_full = df[y_res] - df[y].mean()
+    b_naive = np.polyfit(df[t], df[y], 1)
+    b_deb = np.polyfit(tr_full, df[y], 1)
+    b_final = np.polyfit(tr_full, yr_full, 1)
+    tm, ym = float(df[t].mean()), float(df[y].mean())
+    b_add_t = np.polyfit(tr_full + tm, yr_full, 1)          # same slope, new intercept
+    b_add = np.polyfit(tr_full + tm, yr_full + ym, 1)
+
+    s = df.sample(n, random_state=seed)
+    tt, yy = s[t].to_numpy(), s[y].to_numpy()
+    tr, yr = (s[t_res] - df[t].mean()).to_numpy(), (s[y_res] - df[y].mean()).to_numpy()
+    w = s[hue].to_numpy()
+    days = {1: "Sunday", 2: "Monday", 3: "Tuesday", 4: "Wednesday",
+            5: "Thursday", 6: "Friday", 7: "Saturday"}
+    cmap = plt.get_cmap("viridis")
+    day_colors = {k: cmap((k - 1) / 6) for k in days}
+
+    def _lims(v, pad=0.08):
+        lo, hi = float(np.min(v)), float(np.max(v))
+        p = pad * (hi - lo)
+        return (lo - p, hi + p)
+
+    #        x    y   caption                                                         naive deb fin vl hl colored
+    stages = [
+        (tt, yy, "1. Price vs sales, the raw cloud.",                                0, 0, 0, 0, 0, 0),
+        (tt, yy, "2. Colour by weekday: weekends sell more and charge more.",        0, 0, 0, 0, 0, 1),
+        (tt, yy, f"3. Naive fit, slope {b_naive[0]:+.2f}. Wrong sign!",               1, 0, 0, 0, 0, 1),
+        (tr, yy, f"4. Debias: price minus $M_t$(temp, weekday, cost). Slope {b_deb[0]:+.2f}.", 0, 1, 0, 1, 0, 1),
+        (tr, yr, f"5. Denoise: sales minus $M_y$(temp, weekday, cost). Slope {b_final[0]:+.2f}.", 0, 0, 1, 1, 1, 1),
+        (tr + tm, yr, f"6. Add the mean price back, for the picture only. Slope still {b_final[0]:+.2f}.", 0, 0, 2, 0, 1, 1),
+        (tr + tm, yr + ym, f"7. Add mean sales back: the previous slide's plot. Slope still {b_final[0]:+.2f}.", 0, 0, 3, 0, 0, 1),
+    ]
+    st_xlim = [_lims(st[0]) for st in stages]
+    st_ylim = [_lims(st[1]) for st in stages]
+    st_xlab = ["price"] * 3 + ["price residual"] * 2 + ["price residual + mean price"] * 2
+    st_ylab = ["sales"] * 4 + ["sales residual"] * 2 + ["sales residual + mean sales"]
+
+    def _blend(p, c, a):
+        return (p[0] + (c[0] - p[0]) * a, p[1] + (c[1] - p[1]) * a)
+
+    frames = []
+    for i, st in enumerate(stages):
+        if i > 0:
+            px, py = stages[i - 1][0], stages[i - 1][1]
+            for f in range(_TWEEN):
+                a = _ease((f + 1) / _TWEEN)
+                frames.append(dict(x=px + (st[0] - px) * a, y=py + (st[1] - py) * a,
+                                   cap=st[2], naive=st[3], deb=st[4], fin=st[5],
+                                   vl=st[6], hl=st[7], colored=st[8],
+                                   xlim=_blend(st_xlim[i - 1], st_xlim[i], a),
+                                   ylim=_blend(st_ylim[i - 1], st_ylim[i], a),
+                                   xlab=st_xlab[i], ylab=st_ylab[i], line_alpha=0.0))
+        for h in range(_HOLD):
+            fade = 6
+            la = (_ease((h + 1) / fade) if h < fade else
+                  _ease((_HOLD - h) / fade) if h >= _HOLD - fade else 1.0)
+            frames.append(dict(x=st[0], y=st[1], cap=st[2], naive=st[3], deb=st[4],
+                               fin=st[5], vl=st[6], hl=st[7], colored=st[8],
+                               xlim=st_xlim[i], ylim=st_ylim[i],
+                               xlab=st_xlab[i], ylab=st_ylab[i], line_alpha=la))
+
+    fig, ax = plt.subplots(figsize=(6.8, 5.2), dpi=150)
+    fig.patch.set_facecolor("white")
+    # the caption gets its own line above the y label, so the two never collide
+    fig.subplots_adjust(left=0.13, right=0.97, top=0.77, bottom=0.12)
+
+    def draw(fr):
+        ax.clear()
+        ax.set_facecolor("white")
+        ax.grid(True, color=GRIDCOL, linewidth=0.9, linestyle=(0, (1, 4)))
+        ax.set_axisbelow(True)
+        if fr["vl"]:
+            ax.axvline(0, color="#7A7A85", linewidth=1.0, zorder=1)
+        if fr["hl"]:
+            ax.axhline(0, color="#7A7A85", linewidth=1.0, zorder=1)
+        if fr["colored"]:
+            for k, name in days.items():
+                m = w == k
+                ax.scatter(fr["x"][m], fr["y"][m], s=16, alpha=0.8, color=day_colors[k],
+                           edgecolors="white", linewidths=0.3, zorder=3, label=name)
+            ax.legend(loc="upper right", frameon=True, framealpha=0.9, fontsize=8,
+                      markerscale=1.4)
+        else:
+            ax.scatter(fr["x"], fr["y"], s=16, alpha=0.8, color="#55555F",
+                       edgecolors="white", linewidths=0.3, zorder=3)
+        xx = np.array(fr["xlim"])
+        fits = {("naive", 1): b_naive, ("deb", 1): b_deb,
+                ("fin", 1): b_final, ("fin", 2): b_add_t, ("fin", 3): b_add}
+        for (flag, level), b in fits.items():
+            if fr[flag] == level and fr["line_alpha"] > 0:
+                ax.plot(xx, b[1] + b[0] * xx, color=FITLINE, linewidth=2.4,
+                        alpha=fr["line_alpha"], zorder=4)
+        ax.set_xlim(*fr["xlim"]); ax.set_ylim(*fr["ylim"])
+        ax.set_xlabel(fr["xlab"], fontsize=13)
+        ax.text(0.0, 1.02, fr["ylab"], transform=ax.transAxes, ha="left",
+                va="bottom", rotation=0, fontsize=12, color=INK)
+        ax.set_title("Orthogonalization with boosted trees", fontsize=15,
+                     color=MADRID, pad=40, weight="bold")
+        ax.text(0.5, 1.075, fr["cap"], transform=ax.transAxes, ha="center",
+                va="bottom", fontsize=10.5, color=INK)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
 
     anim = animation.FuncAnimation(fig, draw, frames=frames, interval=1000 / _FPS)
     plt.close(fig)
